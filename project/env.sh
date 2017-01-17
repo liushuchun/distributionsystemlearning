@@ -1,1 +1,1 @@
-export GOPATH=$HOME/book/distributionsystemlearning/project/6.824
+export GOPATH=$HOME/book/distributionsystemlearning/project/2016
