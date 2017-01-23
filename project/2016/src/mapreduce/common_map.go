@@ -1,7 +1,10 @@
 package mapreduce
 
 import (
+	"encoding/json"
 	"hash/fnv"
+	"log"
+	"os"
 )
 
 // doMap does the job of a map worker: it reads one of the input files
@@ -14,6 +17,46 @@ func doMap(
 	nReduce int, // the number of reduce task that will be run ("R" in the paper)
 	mapF func(file string, contents string) []KeyValue,
 ) {
+
+	infile, err := os.Open(inFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer infile.Close()
+
+	fi, err := infile.Stat()
+
+	size := fi.Size()
+
+	nchunck := size / int64(nReduce)
+	nchunck++
+
+	b := make([]byte, nchunck)
+
+	for r := 0; r < nReduce; r++ {
+		file, err = os.Create(reduceName(jobName, mapTaskNumber, r))
+		if err != nil {
+			log.Fatal(err)
+		}
+		enc := json.NewEncoder(file)
+
+		n, err := infile.Read(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		kvs := mapF(file, string(b[0:n]))
+		for _, kv := range kvs {
+			if ihash(kv.Key)%uint32(nReduce) == uint32(r) {
+				err := env.Encode(&kv)
+				if err != nil {
+					log.Fatal("DoMap:", kv, err)
+				}
+			}
+		}
+
+	}
+
 	// TODO:
 	// You will need to write this function.
 	// You can find the filename for this map task's input to reduce task number
@@ -40,6 +83,7 @@ func doMap(
 	//     err := enc.Encode(&kv)
 	//
 	// Remember to close the file after you have written all the values!
+
 }
 
 func ihash(s string) uint32 {
