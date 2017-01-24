@@ -29,26 +29,23 @@ func doMap(
 
 	size := fi.Size()
 
-	nchunck := size / int64(nReduce)
-	nchunck++
-
-	b := make([]byte, nchunck)
+	b := make([]byte, size)
+	_, err = infile.Read(b)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for r := 0; r < nReduce; r++ {
-		file, err = os.Create(reduceName(jobName, mapTaskNumber, r))
+		file, err := os.Create(reduceName(jobName, mapTaskNumber, r))
 		if err != nil {
 			log.Fatal(err)
 		}
 		enc := json.NewEncoder(file)
 
-		n, err := infile.Read(b)
-		if err != nil {
-			log.Fatal(err)
-		}
-		kvs := mapF(file, string(b[0:n]))
+		kvs := mapF(jobName, string(b))
 		for _, kv := range kvs {
 			if ihash(kv.Key)%uint32(nReduce) == uint32(r) {
-				err := env.Encode(&kv)
+				err := enc.Encode(&kv)
 				if err != nil {
 					log.Fatal("DoMap:", kv, err)
 				}
